@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CineVault - Lite Manager</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/choices.js/public/assets/styles/choices.min.css" />
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/png" href="images/icone-192.png">
+</head>
+<body>
+    <div id="login-overlay">
+        <div class="login-box">
+            <span class="logo-icon">🎬</span>
+            <h1>CineVault Lite</h1>
+            <p>Please enter your API password to continue.</p>
+            <div class="login-form">
+                <input type="password" id="login-password-input" placeholder="API Password">
+                <button id="login-button" class="search-btn">
+                    <span class="btn-text">Unlock</span>
+                    <div class="spinner"></div>
+                </button>
+            </div>
+            <div id="login-status-message" class="status-message"></div>
+        </div>
+    </div>
+
+    <div class="container" style="display: none;"> 
+        <header class="header">
+            <div class="logo">
+                <span class="logo-icon">🎬</span>
+                <h1>CineVault <span style="font-size: 0.8rem; border: 1px solid var(--accent); border-radius: 4px; padding: 2px 6px; margin-left: 10px; color: white;">LITE</span></h1>
+            </div>
+            <nav class="nav">
+                <button class="nav-btn active" data-page="manual">Manual Add</button>
+                <button class="nav-btn" data-page="music">Music</button>
+                <button class="nav-btn" data-page="downloads">Downloads</button>
+                <button class="nav-btn" data-page="refresh">Refresh Plex</button>
+                <button class="nav-btn" data-page="help">Help</button>
+                <button id="logout-button" class="nav-btn" style="border-color: var(--error); color: var(--error);">
+                    Logout
+                </button>
+            </nav>
+        </header>
+
+        <main id="manual-page" class="page active">
+            <div class="search-container">
+                <h2>Direct Download</h2>
+                <p class="subtitle">Manually send links to JDownloader</p>
+
+                <div class="search-section">
+                    <div class="input-group">
+                        <label for="manual-link">Download Link (DDL)</label>
+                        <input type="text" id="manual-link" placeholder="https://link_file.com/?=xyz...">
+                    </div>
+
+                    <div class="input-group">
+                        <label for="manual-title">Package / Folder Name (Optional)</label>
+                        <input type="text" id="manual-title" placeholder="Ex: Avatar 2 (2022)">
+                    </div>
+
+                    <div class="type-selector" style="margin-bottom: 20px;">
+                        <div class="radio-group">
+                            <input type="radio" id="manualTypeFilm" name="manualType" value="film" checked>
+                            <label for="manualTypeFilm">Movie</label>
+                        </div>
+                        <div class="radio-group">
+                            <input type="radio" id="manualTypeSerie" name="manualType" value="serie">
+                            <label for="manualTypeSerie">Series</label>
+                        </div>
+                    </div>
+
+                    <button id="manual-send-button" class="search-btn">
+                        <span class="btn-text">Send to JDownloader</span>
+                        <div class="spinner"></div>
+                    </button>
+                </div>
+
+                <div id="manual-status-message" class="status-message"></div>
+            </div>
+        </main>
+
+        <section id="music-page" class="page">
+            <div class="search-container">
+                <h2>Music Manager</h2>
+                <p class="subtitle">Download via SpotDL or Sync with Plex</p>
+                
+                <div class="status-message info" style="display: block; text-align: left; margin-bottom: 25px;">
+                    <strong>Note:</strong>
+                    <ul style="list-style-position: inside; margin-top: 10px; padding-left: 10px;">
+                        <li>Spotify playlists must be <strong>PUBLIC</strong>.</li>
+                        <li><strong>Sync Plex:</strong> Creates a playlist directly in the chosen Plex account.</li>
+                    </ul>
+                </div>
+
+                <div id="music-section" class="search-section">
+                    
+                    <div class="type-selector" style="margin-bottom: 20px;">
+                        <div class="radio-group">
+                            <input type="radio" id="modeDownload" name="musicMode" value="download" checked>
+                            <label for="modeDownload">📥 Download (Files)</label>
+                        </div>
+                        <div class="radio-group">
+                            <input type="radio" id="modePlaylist" name="musicMode" value="playlist">
+                            <label for="modePlaylist">🎵 Create Plex Playlist</label>
+                        </div>
+                    </div>
+
+                    <div class="input-group">
+                        <label for="music-url-input">Spotify URL (Playlist or Track)</label>
+                        <input type="text" id="music-url-input" placeholder="http://open.spotify.com/playlist/...">
+                    </div>
+
+                    <div id="playlist-options-group" class="hidden">
+                        <div class="input-group" id="playlist-name-group"> 
+                            <label for="playlist-name-input">Plex Playlist Name</label>
+                            <input type="text" id="playlist-name-input" placeholder="My Awesome Mix">
+                        </div>
+
+                        <div class="input-group">
+                            <label for="plex-user-select">Target Plex User</label>
+                            <select id="plex-user-select" class="styled-select">
+                                <option value="main">Loading users...</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <button id="music-action-button" class="search-btn">
+                        <span class="btn-text">Start Process</span>
+                        <div class="spinner"></div>
+                    </button>
+
+                    <div id="music-progress-container" class="hidden" style="margin-top: 20px; background: var(--bg-card); padding: 15px; border-radius: 10px; border: 1px solid var(--border);">
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                            <span id="music-current-song" style="font-weight: bold; color: var(--accent); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 70%;">Waiting...</span>
+                            <span id="music-percent-text">0%</span>
+                        </div>
+                        
+                        <div style="width: 100%; background: var(--bg-primary); height: 8px; border-radius: 4px; overflow: hidden;">
+                            <div id="music-progress-fill" style="width: 0%; height: 100%; background: linear-gradient(90deg, var(--accent), var(--success)); border-radius: 4px; transition: width 0.3s ease;"></div>
+                        </div>
+                        
+                        <p id="music-status-text" style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 8px; text-align: right;">Initializing...</p>
+                    </div>
+                </div>
+
+                <div id="music-status-message" class="status-message"></div>
+            </div>
+        </section>
+
+        <section id="downloads-page" class="page">
+            <div class="downloads-container">
+                <h2>Downloads Status</h2>
+                <p class="subtitle">Monitor JDownloader activity in real-time</p>
+
+                <div class="downloads-controls">
+                    <button id="refresh-downloads" class="secondary-btn">
+                        <i class="refresh-icon">🔄</i> Refresh
+                    </button>
+                    <div class="auto-refresh">
+                        <input type="checkbox" id="auto-refresh" checked>
+                        <label for="auto-refresh">Auto-refresh (10s)</label>
+                    </div>
+                </div>
+
+                <div id="downloads-list" class="downloads-list">
+                    <div class="no-downloads">
+                        <i class="no-downloads-icon">📭</i>
+                        <h3>No active downloads</h3>
+                        <p>Active downloads will appear here</p>
+                    </div>
+                </div>
+
+                <div id="downloads-status" class="status-message"></div>
+            </div>
+        </section>
+
+        <section id="refresh-page" class="page">
+            <div class="search-container"> 
+                <h2>Update Plex Library</h2>
+                <div class="search-section"> 
+                    <div style="margin-bottom: 25px; line-height: 1.7; text-align: center;">
+                        <p>This button forces Plex to scan for new files.</p>
+                        <p>Use this <strong>after your download is complete</strong>.</p>
+                    </div>
+                    
+                    <button id="refresh-plex-button" class="search-btn">
+                        <span class="btn-text">
+                            <i class="refresh-icon" style="margin-right: 8px;">🔄</i> Scan Library
+                        </span>
+                        <div class="spinner"></div>
+                    </button>
+                </div>
+                <div id="refresh-status-message" class="status-message"></div>
+            </div>
+        </section>
+        
+        <section id="help-page" class="page">
+            <div class="help-container">
+                <h2>Help & Support</h2>
+                
+                <div class="tips-section">
+                    <h3>⏳ Understanding Downloads</h3>
+                    <ul>
+                        <li>
+                            <strong>At 100% = Refresh Plex!</strong> When a download reaches 100%, 
+                            go to the "Refresh Plex" tab and update the library.
+                        </li>
+                        <li>
+                            <strong>Plex Delay:</strong> It might take 2-5 minutes for Plex to 
+                            process new metadata after scanning.
+                        </li>
+                    </ul>
+                </div>
+
+                <div class="tips-section">
+                    <h3>🎵 Music & Spotify</h3>
+                    <ul>
+                        <li>
+                            <strong>Public Playlists Only:</strong> Ensure your Spotify playlist 
+                            privacy is set to Public, otherwise SpotDL cannot read it.
+                        </li>
+                        <li>
+                            <strong>Sync vs Download:</strong> "Sync" creates a playlist in Plex. 
+                            "Download" just saves the MP3/OGG files to your disk.
+                        </li>
+                    </ul>
+                </div>
+                
+                <div class="version-info">
+                    <p>Version 1.0.0  - CineVault-Lite</p>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/choices.js/public/assets/scripts/choices.min.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>

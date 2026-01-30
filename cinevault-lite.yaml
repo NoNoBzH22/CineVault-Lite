@@ -1,0 +1,44 @@
+version: "3"
+services:
+  cinevault-lite:
+    image: node:20-bookworm
+    container_name: cinevault-lite
+    working_dir: /app
+    ports:
+      - "3000:3000"
+
+    volumes:
+      - /path/to/core:/app
+      # Map to your actual JDownloader download folder (where .crawljob files will be dropped)
+      - /path/to/jdownloader/folder:/downloads
+      # Map to your Music library
+      - /path/to/music/library:/music
+      # Persist sessions
+      - ./sessions:/app/sessions
+    entrypoint: 
+      - /bin/sh
+      - -c
+      - |
+        echo "--- 1. SYSTEM UPDATE & DEPENDENCIES ---"
+        apt-get update -qq && apt-get install -y -qq python3 python3-pip python3-venv ffmpeg
+
+        echo "--- 2. PYTHON PACKAGES INSTALLATION ---"
+        pip3 install --no-cache-dir spotipy spotdl plexapi --break-system-packages
+        
+        # Check if ffmpeg is available for spotdl
+        if ! command -v ffmpeg >/dev/null 2>&1; then
+          echo "FFmpeg not found, downloading via spotdl..."
+          spotdl --download-ffmpeg
+        fi
+
+        echo "--- 3. NODE.JS DEPENDENCIES INSTALLATION ---"
+        if [ -f "package.json" ]; then
+          npm install
+        else
+          echo "ERROR: package.json not found in /app. Please check your volume mapping."
+          exit 1
+        fi
+
+        echo "--- 4. STARTING SERVER ---"
+        node server.js
+    restart: unless-stopped

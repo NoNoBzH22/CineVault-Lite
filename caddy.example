@@ -1,0 +1,35 @@
+# =====================================
+# === Application Downloader        ===
+# =====================================
+your-domain-name.com {
+    root * /srv/website
+    file_server
+
+    # --- Maximum Security ---
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+        
+        X-Frame-Options "DENY"
+        
+        X-Content-Type-Options "nosniff"
+        
+        X-XSS-Protection "1; mode=block"
+        
+        Referrer-Policy "strict-origin-when-cross-origin"
+        
+        -Server
+    }
+    # -----------------------------------------------
+
+    @api {
+        path /login* /check-session* /logout* /download-status* /download-music* /refresh-plex* /sync-playlist* /plex-users* /music-status* /direct-download*
+    }
+    reverse_proxy @api IP_ADRESS:3000
+
+    log {
+        output file /var/log/caddy/cinevalut_lite_access.log {
+            roll_size 10mb
+            roll_keep 5
+        }
+    }
+}

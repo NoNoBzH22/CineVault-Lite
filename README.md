@@ -111,8 +111,8 @@ If you want to integrate CineVault into other scripts, here are the available en
 | `GET` | `/download-status` | Get JSON list of active downloads |
 | `POST` | `/refresh-plex` | Trigger Plex Library Scan |
 
-## Reverse Proxy (Caddy exemple)
-I personaly use caddy for my website, and so i let you an exemple of a configuration that work with cinevault-lite
+## Reverse Proxy (Caddy example)
+I personally use Caddy for my website, so I've included an example configuration that works with CineVault-Lite.
 
 ---
 

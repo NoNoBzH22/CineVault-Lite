@@ -56,27 +56,43 @@ For the folder watch,
 
 ---
 
-## Installation (Docker Compose)
+### Installation (Docker Compose)
 
 The easiest way to deploy is using Docker Compose.
 
-### 1. Clone the repository
+#### 1. Clone the repository
+
 ```bash
-git clone [https://github.com/CineVault-Lite/CineVault-Lite.git](https://github.com/CineVault-Lite/CineVault-Lite.git)
+git clone https://github.com/TonUsername/CineVault-Lite.git
 cd CineVault-Lite
 
 ```
 
-### 2. Configure `docker-compose.yml`
+#### 2. Configure Environment
 
-Download and modify the `docker-compose.yml` file
+1. Rename `core/.env.exemple` to `core/.env`.
+2. Edit `core/.env` with your API keys and passwords.
 
-### 3. Start the container
+#### 3. Configure Docker
+
+1. Open the [`docker-compose.yml`](https://www.google.com/search?q=./docker-compose.yml) file.
+2. Update the `volumes` section to match your paths (JDownloader folder, Music folder).
+
+#### 4. Setup Reverse Proxy (Frontend)
+
+Since this consists of a Backend (Node.js) and a Frontend (Static HTML/JS), you need a web server/reverse proxy.
+
+* **Backend:** Runs on port 3000 (via Docker).
+* **Frontend:** The `website/` folder contains the interface.
+
+👉 **[See the Caddyfile example](./caddy.example)** to configure your web server to serve the `website/` folder and proxy requests to the backend.
+
+#### 5. Start the container
 
 ```bash
-docker-compose up -d --build
-```
+docker-compose up -d
 
+```
 ---
 
 ## How It Works
@@ -111,13 +127,10 @@ If you want to integrate CineVault into other scripts, here are the available en
 | `GET` | `/download-status` | Get JSON list of active downloads |
 | `POST` | `/refresh-plex` | Trigger Plex Library Scan |
 
-## Reverse Proxy (Caddy exemple)
-I personaly use caddy for my website, and so i let you an exemple of a configuration that work with cinevault-lite
 
 ---
 
 ## ⚠️ Disclaimer
-
 This project is intended for **personal use** and educational purposes (HomeLab). Please ensure you have the necessary rights to the content you download or manage.
 
 ---

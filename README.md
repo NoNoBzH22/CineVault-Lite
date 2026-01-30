@@ -1,92 +1,170 @@
-
-# CineVault-Lite
+# CineVault-Lite 
 
 ![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 ![Node](https://img.shields.io/badge/node-%3E%3D18-brightgreen)
 
-**CineVault-Lite** is a lightweight, self-hosted web interface designed for HomeLab enthusiasts. It simplifies the interaction between your media services by acting as a centralized bridge for manual download management, music synchronization, and library updates.
+**CineVault-Lite** is a lightweight, self-hosted web dashboard designed for HomeLab enthusiasts. It acts as a centralized bridge between your manual download workflow (JDownloader), your music library (Spotify/SpotDL), and your media server (Plex).
+
+> **Note:** This "Lite" version focuses on manual management, privacy, and automation triggers.
 
 ## Key Features
 
-* **JDownloader Bridge:** Manually send direct download links (DDL) to your JDownloader instance via API.
-* **Spotify-to-MP3:** Download or sync public Spotify playlists locally using [SpotDL](https://github.com/spotDL/spotify-downloader) integration.
-* **Plex Webhook:** Manually trigger a Plex library scan with a single click once your downloads are ready.
-* **Live Monitoring:** Track JDownloader download progress in real-time directly from the dashboard.
-* **Responsive UI:** Modern, dark-themed interface optimized for both mobile and desktop.
-* **Secure:** Designed to run behind a reverse proxy (like Caddy or Nginx) with API token authentication.
+* **JDownloader Bridge:** Manually send direct download links (1fichier, Uptobox, etc.) to your JDownloader instance.
+* **Spotify-to-OGG:** Download or sync public Spotify playlists locally using [SpotDL](https://github.com/spotDL/spotify-downloader).
+* **Plex Webhook:** Manually trigger a Plex library scan with a single click.
+* **Live Monitoring:** Track JDownloader progress in real-time directly from the dashboard.
+* **Responsive UI:** Modern, dark-themed interface optimized for mobile and desktop.
+* **Secure:** Designed to run behind a reverse proxy with built-in API token authentication.
+
+## Prerequisites
+
+Before installing, ensure you have:
+* **Docker & Docker Compose** installed.
+* A running instance of **JDownloader 2** (Headless or Desktop).
+* A **Plex Media Server**.
+* A **Spotify Developer Account** (for API keys).
 
 > [!IMPORTANT]
-> **Spotify Configuration Required**
+> **🎵 Spotify Configuration Required**
 > To enable music downloading and playlist synchronization, you must create a [Spotify Developer App](https://developer.spotify.com/dashboard).
 >
-> It bypass the Rate/request limit with spotDL [spotDL FAQ](https://github.com/spotDL/spotify-downloader/issues/2420)
+> [link to this problem](https://github.com/spotDL/spotify-downloader/issues/2420)
 >
 > 1. Go to the **Spotify Developer Dashboard**.
 > 2. Create a new app to generate your **Client ID** and **Client Secret**.
-> 3. Add these credentials to your `docker-compose.yml` or environment variables to unlock SpotDL features.
+> 3. Add these credentials to your environment variables to unlock SpotDL features.
+
+---
+
+## JDownloader Configuration (Important)
+
+To enable the **"Download Status"** feature, JDownloader must accept local API connections.
+
+1. Open your **JDownloader 2** settings (via Web Interface or Desktop GUI).
+2. Go to Advanced Settings
+3. Search for **Deprecated Api**
+4. Activate it and note the port ect (You can modify it)
+5. **Note:** Your `JD_HOST` in the configuration below should be the local IP of your JDownloader container/PC, and `JD_API_PORT` is typically `3128`.
+
+> **Note for Docker Users:** If running JDownloader in Docker, ensure port `3128` is mapped/exposed in your JDownloader container config.
+
+For the folder watch,
+1. Inside Settings, find Extention Modules and activate *folder watch* and *scheduler*
+2. Open *folder watch* and change the folder to the one you choice
+3. For *scheduler*, my advise is to first add all download every minutes and start all downloads every minutes
+
+---
 
 ## Installation (Docker Compose)
 
-The easiest way to deploy CineVault-Lite is using Docker Compose.
+The easiest way to deploy is using Docker Compose.
 
-1. **Clone the repository:**
-   ```bash
-   git clone [https://github.com/NoNoBzH22/CineVault-Lite.git](https://github.com/NoNoBzH22/CineVault-Lite.git)
-   cd CineVault-Lite
+### 1. Clone the repository
+```bash
+git clone [https://github.com/your-username/CineVault-Lite.git](https://github.com/your-username/CineVault-Lite.git)
+cd CineVault-Lite
 
-2. **Configure your `docker-compose.yml`:**
+```
+
+### 2. Configure `docker-compose.yml`
+
+Create or update your `docker-compose.yml` file:
 
 ```yaml
 version: "3"
 services:
   cinevault-lite:
-    image: node:18-alpine
+    image: node:20-bookworm
     container_name: cinevault-lite
     working_dir: /app
-    volumes:
-      - ./app:/app
-      - /path/to/your/downloads:/downloads
-      - /path/to/your/music:/music
     ports:
       - "3000:3000"
-    environment:
-      # Security
-      - API_PASSWORD=your_secure_api_password
-      
-      # Plex Configuration
-      - PLEX_URL=http://your-plex-ip:32400
-      - PLEX_TOKEN=your_plex_token
-      
-      # JDownloader Credentials
-      - JD_HOST=IP_OF_JDOWNLOADER
-      - JD_API_PORT=PORT_JDOWNLOADER_API
 
-      # Spotify Credentials
-      - SPOTIFY_CLIENT_ID=CLIENT_ID
-      - SPOTIFY_CLIENT_SECRET=CLIENT_SECRET
+    volumes:
+      - /path/to/core:/app
+      # Map to your actual JDownloader download folder (where .crawljob files will be dropped)
+      - /path/to/jdownloader/folder:/downloads
+      # Map to your Music library
+      - /path/to/music/library:/music
+      # Persist sessions
+      - ./sessions:/app/sessions
+    entrypoint: 
+      - /bin/sh
+      - -c
+      - |
+        echo "--- 1. SYSTEM UPDATE & DEPENDENCIES ---"
+        apt-get update -qq && apt-get install -y -qq python3 python3-pip python3-venv ffmpeg
 
+        echo "--- 2. PYTHON PACKAGES INSTALLATION ---"
+        pip3 install --no-cache-dir spotipy spotdl plexapi --break-system-packages
+        
+        # Check if ffmpeg is available for spotdl
+        if ! command -v ffmpeg >/dev/null 2>&1; then
+          echo "FFmpeg not found, downloading via spotdl..."
+          spotdl --download-ffmpeg
+        fi
+
+        echo "--- 3. NODE.JS DEPENDENCIES INSTALLATION ---"
+        if [ -f "package.json" ]; then
+          npm install
+        else
+          echo "ERROR: package.json not found in /app. Please check your volume mapping."
+          exit 1
+        fi
+
+        echo "--- 4. STARTING SERVER ---"
+        node server.js
     restart: unless-stopped
 
 ```
 
-3. **Start the container:**
+### 3. Start the container
+
 ```bash
-docker-compose up -d
+docker-compose up -d --build
 
 ```
 
+---
 
+## 📦 How It Works
 
-## Tech Stack
+### 1. Manual Add (Direct Download)
 
-* **Frontend:** HTML5, CSS3 (Custom Dark Theme), Vanilla JavaScript
-* **Backend:** Node.js, Express
-* **Integrations:** JDownloader API, SpotDL, Plex API
+* Paste a DDL link (e.g., from 1fichier) into the input field.
+* Give it a Title (optional but recommended for folder naming).
+* Click **Send**.
+* CineVault creates a `.crawljob` file in the mapped `/downloads` folder. JDownloader detects this file and starts the download automatically.
 
-## Disclaimer
+### 2. Music Manager
 
-This project is intended for personal use and educational purposes (HomeLab). Please ensure you have the necessary rights to the content you download or manage.
+* **Download Mode:** Paste a Spotify Track or Playlist URL. The server uses `SpotDL` to download metadata-tagged MP3/OGG files to your `/music` folder.
+* **Sync Mode:** Creates a matching `.m3u` playlist directly inside your Plex Media Server for a specific user.
+
+### 3. Status & Refresh
+
+* **Downloads:** Queries the JDownloader Local API (port 3128) to show a progress bar.
+* **Refresh Plex:** Hits the Plex API to scan libraries instantly.
+
+---
+
+## API Endpoints
+
+If you want to integrate CineVault into other scripts, here are the available endpoints:
+
+| Method | Endpoint | Description |
+| --- | --- | --- |
+| `POST` | `/direct-download` | Send a link to JD (`{link, title, type}`) |
+| `POST` | `/download-music` | Download a song/playlist (`{url}`) |
+| `GET` | `/download-status` | Get JSON list of active downloads |
+| `POST` | `/refresh-plex` | Trigger Plex Library Scan |
+
+---
+
+## ⚠️ Disclaimer
+
+This project is intended for **personal use** and educational purposes (HomeLab). Please ensure you have the necessary rights to the content you download or manage.
 
 ---
 

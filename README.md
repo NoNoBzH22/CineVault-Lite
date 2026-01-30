@@ -62,73 +62,24 @@ The easiest way to deploy is using Docker Compose.
 
 ### 1. Clone the repository
 ```bash
-git clone [https://github.com/your-username/CineVault-Lite.git](https://github.com/your-username/CineVault-Lite.git)
+git clone [https://github.com/CineVault-Lite/CineVault-Lite.git](https://github.com/CineVault-Lite/CineVault-Lite.git)
 cd CineVault-Lite
 
 ```
 
 ### 2. Configure `docker-compose.yml`
 
-Create or update your `docker-compose.yml` file:
-
-```yaml
-version: "3"
-services:
-  cinevault-lite:
-    image: node:20-bookworm
-    container_name: cinevault-lite
-    working_dir: /app
-    ports:
-      - "3000:3000"
-
-    volumes:
-      - /path/to/core:/app
-      # Map to your actual JDownloader download folder (where .crawljob files will be dropped)
-      - /path/to/jdownloader/folder:/downloads
-      # Map to your Music library
-      - /path/to/music/library:/music
-      # Persist sessions
-      - ./sessions:/app/sessions
-    entrypoint: 
-      - /bin/sh
-      - -c
-      - |
-        echo "--- 1. SYSTEM UPDATE & DEPENDENCIES ---"
-        apt-get update -qq && apt-get install -y -qq python3 python3-pip python3-venv ffmpeg
-
-        echo "--- 2. PYTHON PACKAGES INSTALLATION ---"
-        pip3 install --no-cache-dir spotipy spotdl plexapi --break-system-packages
-        
-        # Check if ffmpeg is available for spotdl
-        if ! command -v ffmpeg >/dev/null 2>&1; then
-          echo "FFmpeg not found, downloading via spotdl..."
-          spotdl --download-ffmpeg
-        fi
-
-        echo "--- 3. NODE.JS DEPENDENCIES INSTALLATION ---"
-        if [ -f "package.json" ]; then
-          npm install
-        else
-          echo "ERROR: package.json not found in /app. Please check your volume mapping."
-          exit 1
-        fi
-
-        echo "--- 4. STARTING SERVER ---"
-        node server.js
-    restart: unless-stopped
-
-```
+Download and modify the `docker-compose.yml` file
 
 ### 3. Start the container
 
 ```bash
 docker-compose up -d --build
-
 ```
 
 ---
 
-## 📦 How It Works
+## How It Works
 
 ### 1. Manual Add (Direct Download)
 
@@ -139,7 +90,7 @@ docker-compose up -d --build
 
 ### 2. Music Manager
 
-* **Download Mode:** Paste a Spotify Track or Playlist URL. The server uses `SpotDL` to download metadata-tagged MP3/OGG files to your `/music` folder.
+* **Download Mode:** Paste a Spotify Track or Playlist URL. The server uses `SpotDL` to download metadata-tagged OGG files to your `/music` folder.
 * **Sync Mode:** Creates a matching `.m3u` playlist directly inside your Plex Media Server for a specific user.
 
 ### 3. Status & Refresh
@@ -159,6 +110,9 @@ If you want to integrate CineVault into other scripts, here are the available en
 | `POST` | `/download-music` | Download a song/playlist (`{url}`) |
 | `GET` | `/download-status` | Get JSON list of active downloads |
 | `POST` | `/refresh-plex` | Trigger Plex Library Scan |
+
+## Reverse Proxy (Caddy exemple)
+I personaly use caddy for my website, and so i let you an exemple of a configuration that work with cinevault-lite
 
 ---
 

@@ -15,6 +15,12 @@ services:
       - /path/to/music/library:/music
       # Persist sessions
       - ./sessions:/app/sessions
+      
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50' #Limits to 50% usage for the CPU
+          memory: 1024M #And 1go ram limiter
     entrypoint: 
       - /bin/sh
       - -c

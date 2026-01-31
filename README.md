@@ -75,7 +75,7 @@ cd CineVault-Lite
 
 #### 3. Configure Docker
 
-1. Open the [`docker-compose.yml`](https://www.google.com/search?q=./docker-compose.yml) file.
+1. Open the [`cinevault-lite.yaml`](./cinevault-lite.yaml) file.
 2. Update the `volumes` section to match your paths (JDownloader folder, Music folder).
 
 #### 4. Setup Reverse Proxy (Frontend)

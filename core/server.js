@@ -8,7 +8,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const rateLimit = require('express-rate-limit');
-const { spawn, exec } = require('child_process');
+const { spawn } = require('child_process');
 require('dotenv').config();
 
 // --- Configuration ---
@@ -453,3 +453,4 @@ app.listen(PORT, () => {
 process.on('SIGINT', () => process.exit(0));
 
 process.on('SIGTERM', () => process.exit(0));
+

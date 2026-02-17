@@ -8,7 +8,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const rateLimit = require('express-rate-limit');
-const { spawn } = require('child_process');
+const { spawn, exec } = require('child_process');
 require('dotenv').config();
 
 // --- Configuration ---
@@ -34,6 +34,13 @@ const PATHS = {
 
 const app = express();
 const PORT = 3000;
+const SERVER_SALT = crypto.randomBytes(16).toString('hex');
+
+const hashPassword = (password, salt) => {
+    return crypto.scryptSync(password, salt, 64);
+};
+
+const CORRECT_HASH_BUFFER = hashPassword(CONFIG.API_PASSWORD, SERVER_SALT);
 
 // --- Middleware Configuration ---
 app.use(cors());
@@ -74,7 +81,6 @@ const authMiddleware = (req, res, next) => {
 };
 
 // --- Global State ---
-// Only keeping music state, as scraping is removed
 let globalState = {
     musicDownloadState: {
         isDownloading: false,
@@ -233,24 +239,28 @@ app.post('/login', (req, res) => {
     if (!password) return res.status(400).json({ error: "Missing password." });
 
     try {
-        const hash = (str) => crypto.createHash('sha256').update(str).digest('hex');
-        const correctHash = hash(CONFIG.API_PASSWORD);
-        const userHash = hash(password);
+        const userHashBuffer = hashPassword(password, SERVER_SALT);
 
-        if (crypto.timingSafeEqual(Buffer.from(correctHash), Buffer.from(userHash))) {
+        const passwordMatch = crypto.timingSafeEqual(
+            CORRECT_HASH_BUFFER,
+            userHashBuffer
+        );
+
+        if (passwordMatch) {
             req.session.isLoggedIn = true;
             console.log(`[Auth] Login successful for ${req.ip}`);
             res.json({ success: true });
         } else {
-            console.warn(`[Auth] Login failed for ${req.ip}`);
-            res.status(401).json({ error: "Invalid API Password." });
+            setTimeout(() => { // ANTI-BRUTE FORCE
+                console.warn(`[Auth] Login failed for ${req.ip}`);
+                res.status(401).json({ error: "Invalid API Password." });
+            }, 500); 
         }
     } catch (e) {
         console.error("[Auth] Error:", e.message);
         res.status(500).json({ error: "Internal Server Error." });
     }
 });
-
 app.get('/check-session', (req, res) => {
     res.json({ isLoggedIn: req.session.isLoggedIn || false });
 });
@@ -441,4 +451,5 @@ app.listen(PORT, () => {
 
 // Graceful Shutdown
 process.on('SIGINT', () => process.exit(0));
+
 process.on('SIGTERM', () => process.exit(0));

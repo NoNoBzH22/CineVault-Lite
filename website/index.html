@@ -41,14 +41,6 @@
                 <span>CineVault</span>
             </div>
             <ul class="nav-links">
-                <li class="active" data-target="section-trending">
-                    <i data-lucide="flame"></i>
-                    <span>Trending</span>
-                </li>
-                <li data-target="section-search">
-                    <i data-lucide="search"></i>
-                    <span>Search</span>
-                </li>
                 <li data-target="section-music">
                     <i data-lucide="music"></i>
                     <span>Music</span>
@@ -76,42 +68,6 @@
 
         <main class="content-wrapper">
             
-            <section id="section-trending" class="section active">
-                <div class="hero-header">
-                    <h2>🔥 Trending Now</h2>
-                    <p>Most popular movies right now</p>
-                </div>
-                <div id="trending-grid" class="media-grid">
-                    <div class="loader"></div>
-                </div>
-            </section>
-
-            <section id="section-search" class="section hidden">
-                <div class="hero-header">
-                    <h2>Global Search</h2>
-                </div>
-                
-                <div class="search-hero">
-                    <div class="search-input-wrapper">
-                        <i data-lucide="search" class="search-icon-inside"></i>
-                        <input type="text" id="search-input" placeholder="Movie or TV Series title...">
-                        <button id="btn-search-trigger" class="btn-search-action">Go</button>
-                    </div>
-                    <div class="filter-pills">
-                        <label class="pill">
-                            <input type="radio" name="search-type" value="film" checked>
-                            <span>Movies</span>
-                        </label>
-                        <label class="pill">
-                            <input type="radio" name="search-type" value="serie">
-                            <span>TV Series</span>
-                        </label>
-                    </div>
-                </div>
-
-                <div id="search-results" class="media-grid"></div>
-            </section>
-
             <section id="section-music" class="section hidden">
                 <div class="hero-header">
                     <h2>Music Hub</h2>
@@ -177,7 +133,7 @@
                 <div class="manual-container">
                     <form id="manual-form" class="form-card">
                         <label>1fichier Link</label>
-                        <input type="text" id="manual-link" placeholder="https://1fichier.com/..." required>
+                        <input type="text" id="manual-link" placeholder="https://xyz.abc/..." required>
                         <label>Name (Optional)</label>
                         <input type="text" id="manual-name" placeholder="Title...">
                         

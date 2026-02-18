@@ -43,15 +43,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- STATE ---
     const state = {
-        plexInventory: [],
         downloadInterval: null,
         musicInterval: null
-    };
-
-    const isInPlex = (title) => {
-        if(!state.plexInventory.length) return false;
-        const clean = (s) => String(s).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "");
-        return state.plexInventory.some(p => clean(p.title) === clean(title));
     };
 
     // --- NAVIGATION ---
@@ -67,7 +60,7 @@ document.addEventListener('DOMContentLoaded', () => {
             sections.forEach(s => hide(s));
             show(dom(targetId));
 
-            // Logic Hooks
+            // Refresh specific data when entering section
             if(targetId === 'section-downloads') loadDownloads();
         });
     });
@@ -111,227 +104,23 @@ document.addEventListener('DOMContentLoaded', () => {
         hide(dom('login-overlay'));
         show(dom('app-container'));
         
-        try {
-            state.plexInventory = await apiCall('/plex-inventory');
-        } catch(e) {}
-
-        loadTrending();
+        // Initial Loads
+        loadDownloads();
+        
+        // Start Auto-Refresh Loops
         startLoops();
+        
         lucide.createIcons();
     };
 
     const startLoops = () => {
-        loadDownloads();
+        // Refresh downloads every 8 seconds
         state.downloadInterval = setInterval(loadDownloads, 8000);
+        // Check music status every 1 second (fast UI update)
         state.musicInterval = setInterval(updateMusicStatus, 1000);
     };
 
-    // --- UTILS: BLOCKING LOADER ---
-    const toggleBlockingLoader = (show, msg = "Processing...") => {
-        let loader = document.getElementById('blocking-loader');
-        if (!loader) {
-            loader = document.createElement('div');
-            loader.id = 'blocking-loader';
-            loader.className = 'hidden';
-            loader.innerHTML = `<div class="loader"></div><p id="blocking-msg"></p>`;
-            document.body.appendChild(loader);
-        }
-        
-        if (show) {
-            document.getElementById('blocking-msg').textContent = msg;
-            loader.classList.remove('hidden');
-        } else {
-            loader.classList.add('hidden');
-        }
-    };
-
-    // --- TRENDING & CARDS ---
-    const createCard = (movie) => {
-        const div = document.createElement('div');
-        div.className = 'card';
-        const onPlex = isInPlex(movie.title);
-        const badge = onPlex ? `<div class="plex-badge">ON PLEX</div>` : '';
-
-        div.innerHTML = `
-            <div class="poster-container">
-                <img src="${movie.image || ''}" loading="lazy" alt="${movie.title}">
-                ${badge}
-            </div>
-            <div class="card-info">
-                <div class="card-title">${movie.title}</div>
-                <div class="card-year">${movie.year || ''}</div>
-            </div>
-        `;
-        div.addEventListener('click', () => handleSelection(movie));
-        return div;
-    };
-
-    const loadTrending = async () => {
-        const grid = dom('trending-grid');
-        if(!grid) return;
-        try {
-            const movies = await apiCall('/trending');
-            grid.innerHTML = '';
-            movies.forEach(m => grid.appendChild(createCard(m)));
-        } catch (e) {
-            grid.innerHTML = '<p style="padding:1rem">Error loading trending items</p>';
-        }
-    };
-
-    // --- SEARCH ---
-    const searchBtn = dom('btn-search-trigger');
-    if(searchBtn) {
-        searchBtn.addEventListener('click', async () => {
-            const q = dom('search-input').value.trim();
-            if (!q) return;
-            
-            const grid = dom('search-results');
-            const type = document.querySelector('input[name="search-type"]:checked').value;
-            
-            grid.innerHTML = '<div class="loader-wrapper"><div class="loader"></div></div>';
-            
-            try {
-                const res = await apiCall('/search', 'POST', { title: q, mediaType: type });
-                grid.innerHTML = '';
-                if(!res || !res.length) grid.innerHTML = '<p style="padding:1rem">No results found.</p>';
-                else res.forEach(m => grid.appendChild(createCard(m)));
-            } catch (e) {
-                grid.innerHTML = `<p style="padding:1rem">Error: ${e.message}</p>`;
-            }
-        });
-    }
-
-    // --- MODAL ---
-    const handleSelection = async (movie) => {
-        showModal(movie.title, '<div class="loader-wrapper"><div class="loader"></div></div>');
-        try {
-            // Logique pour différencier tendance (hrefPath download) ou recherche
-            let ep = '/select-movie';
-            if(movie.hrefPath && movie.hrefPath.includes('download')) ep = '/select-trending';
-            
-            const data = await apiCall(ep, 'POST', { hrefPath: movie.hrefPath || '', title: movie.title });
-            renderModalOptions(data);
-        } catch (e) {
-            dom('modal-body').innerHTML = `<p style="color:red">${e.message}</p>`;
-        }
-    };
-    // --- HELPER: TRI QUALITÉ (V1 Logic) ---
-    const parseSizeToMB = (sizeStr) => {
-        if (!sizeStr) return Infinity;
-        const match = sizeStr.match(/([\d.,]+)\s*(gb|mb|ko|kb|tb)/i);
-        if (!match) return Infinity;
-        let size = parseFloat(match[1].replace(',', '.'));
-        const unit = match[2].toLowerCase();
-        if (unit.includes('gb') || unit.includes('go')) size *= 1024;
-        else if (unit.includes('tb')) size *= 1024 * 1024;
-        else if (unit.includes('kb') || unit.includes('ko')) size /= 1024;
-        return size;
-    };
-
-    const getQualityRank = (qualityString) => {
-        const lower = qualityString.toLowerCase();
-        if (lower.includes("ultra hdlight") && lower.includes("x265")) return 1;
-        if (lower.includes("1080p") && lower.includes("x265") || lower.includes("1080p light") && lower.includes("x265")) return 2;
-        // 3. Le reste
-        return 3;
-    };
-    const renderModalOptions = (data) => {
-        const body = dom('modal-body');
-        body.innerHTML = '';
-
-        // Saisons
-        if (data.seasons && data.seasons.length) {
-            const h4 = document.createElement('h4'); 
-            h4.textContent = "Seasons"; h4.className = "modal-subtitle";
-            body.appendChild(h4);
-            
-            data.seasons.forEach(s => {
-                const btn = document.createElement('button');
-                btn.className = 'option-btn';
-                btn.innerHTML = `<span>${s.label}</span> <i data-lucide="chevron-right"></i>`;
-                btn.onclick = async () => {
-                    body.innerHTML = '<div class="loader-wrapper"><div class="loader"></div></div>';
-                    const res = await apiCall('/select-season', 'POST', { seasonValue: s.value });
-                    renderModalOptions(res);
-                };
-                body.appendChild(btn);
-            });
-        }
-
-        // Qualités (Trié + Sécurisé)
-        if (data.clientOptions && data.clientOptions.length) {
-            const h4 = document.createElement('h4'); 
-            h4.textContent = "Available Files"; h4.className = "modal-subtitle";
-            body.appendChild(h4);
-
-            // LOGIQUE DE TRI
-            const sortedOptions = data.clientOptions.map(q => ({
-                ...q,
-                sizeVal: parseSizeToMB(q.size),
-                rank: getQualityRank(q.quality)
-            })).sort((a, b) => {
-                if (a.rank !== b.rank) return a.rank - b.rank;
-                return a.sizeVal - b.sizeVal;
-            });
-
-            sortedOptions.forEach(q => {
-                const btn = document.createElement('button');
-                
-                let specialClass = '';
-                let icon = '';
-                if(q.rank === 1) { specialClass = 'quality-gold'; icon = '⭐'; }
-                else if(q.rank === 2) { specialClass = 'quality-blue'; icon = '✨'; }
-
-                btn.className = `option-btn ${specialClass}`;
-                
-                btn.innerHTML = `
-                    <div class="opt-left">
-                        <div class="opt-title">
-                            ${icon} ${q.episode ? 'Ep. '+q.episode : 'Movie'} 
-                            <span class="quality-tag">${q.quality}</span>
-                        </div>
-                        <div class="opt-meta">${q.size || 'Unknown size'}</div>
-                    </div>
-                    <i data-lucide="download" class="opt-icon"></i>
-                `;
-                
-                btn.onclick = async () => {
-                    hide(dom('modal-overlay'));
-                    
-                    toggleBlockingLoader(true, "Retrieving movie...");
-
-                    try {
-                        await apiCall('/get-link', 'POST', { chosenId: q.id });
-                        
-                        toggleBlockingLoader(false);
-                        showToast('Link sent to JDownloader!');
-                        loadDownloads();
-
-                        // Optionnel : Basculer automatiquement sur l'onglet téléchargement
-                        dom('section-downloads').click(); // si tu veux rediriger
-
-                    } catch (e) {
-                        toggleBlockingLoader(false);
-                        showToast("Error: " + e.message);
-                        // Optionnel : On rouvre la modale pour laisser l'utilisateur réessayer ?
-                        show(dom('modal-overlay')); 
-                    }
-                };
-                body.appendChild(btn);
-            });
-        }
-        lucide.createIcons();
-    };
-
-    const showModal = (title, content) => {
-        dom('modal-title').textContent = title;
-        dom('modal-body').innerHTML = content;
-        show(dom('modal-overlay'));
-    };
-    
-    dom('modal-close').onclick = () => hide(dom('modal-overlay'));
-
-    // --- DOWNLOADS (LIST) ---
+    // --- DOWNLOADS (JDownloader) ---
     const loadDownloads = async () => {
         const list = dom('downloads-list');
         if(!list) return;
@@ -342,8 +131,7 @@ document.addEventListener('DOMContentLoaded', () => {
             
             if(!data || !data.length) {
                 list.innerHTML = `
-                    <div class="empty-state-modern">
-                        <i data-lucide="hard-drive-download"></i>
+                    <div class="empty-state">
                         <p>No active downloads</p>
                     </div>`;
                 lucide.createIcons();
@@ -352,9 +140,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
             data.forEach(dl => {
                 const item = document.createElement('div');
-                item.className = 'dl-card'; // Nouvelle classe CSS
+                item.className = 'dl-card'; 
                 
-                // Calcul couleur progress bar (vert si fini, bleu si en cours)
                 const isDone = dl.percent >= 100;
                 const barColor = isDone ? 'var(--success)' : 'var(--accent)';
                 
@@ -368,9 +155,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             <span class="dl-percentage">${Math.round(dl.percent)}%</span>
                         </div>
                         <div class="dl-bar-bg">
-                            <div class="dl-bar-fill" style="width: ${dl.percent}%; background: ${barColor};">
-                                <div class="dl-bar-glow"></div>
-                            </div>
+                            <div class="dl-bar-fill" style="width: ${dl.percent}%; background: ${barColor};"></div>
                         </div>
                         <div class="dl-status-text">${isDone ? 'Completed' : 'Downloading...'}</div>
                     </div>
@@ -381,9 +166,11 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch(e) {}
     };
     
-    dom('btn-refresh-downloads').onclick = loadDownloads;
+    // Refresh button manually triggers load
+    const refreshBtn = dom('btn-refresh-downloads');
+    if(refreshBtn) refreshBtn.onclick = loadDownloads;
 
-    // --- MUSIC ---
+    // --- MUSIC HUB ---
     const musicTabs = document.querySelectorAll('.tab-btn');
     musicTabs.forEach(t => {
         t.onclick = () => {
@@ -410,20 +197,43 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch(e) {}
     };
 
-    dom('music-dl-form').onsubmit = async (e) => {
-        e.preventDefault();
-        try {
-            await apiCall('/download-music', 'POST', { url: dom('music-url').value });
-            dom('music-url').value = '';
-            showToast('Music started!');
-        } catch(e) { showToast(e.message); }
-    };
+    // 1. Download Music (SpotDL)
+    const musicForm = dom('music-dl-form');
+    if(musicForm) {
+        musicForm.onsubmit = async (e) => {
+            e.preventDefault();
+            try {
+                await apiCall('/download-music', 'POST', { url: dom('music-url').value });
+                dom('music-url').value = '';
+                showToast('Music started!');
+            } catch(e) { showToast(e.message); }
+        };
+    }
 
+    // 2. Sync Playlist (Plex Bridge)
+    const playlistForm = dom('playlist-sync-form');
+    if(playlistForm) {
+        playlistForm.onsubmit = async (e) => {
+            e.preventDefault();
+            try {
+                await apiCall('/sync-playlist', 'POST', {
+                    url: dom('playlist-url').value,
+                    name: dom('playlist-name').value,
+                    userId: dom('plex-users-select').value
+                });
+                dom('playlist-url').value = '';
+                showToast('Sync started!');
+            } catch(e) { showToast(e.message); }
+        };
+    }
+
+    // 3. Live Status Update
     const updateMusicStatus = async () => {
         try {
             const s = await apiCall('/music-status');
             const card = dom('music-status-card');
-            
+            if(!card) return;
+
             if(s.isDownloading || s.progress > 0) {
                 show(card);
                 dom('music-current-song').textContent = s.currentSong || "Waiting...";
@@ -436,34 +246,44 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch(e) {}
     };
 
-    // --- MANUAL ---
-    dom('manual-form').onsubmit = async (e) => {
-        e.preventDefault();
-        try {
-            const type = document.querySelector('input[name="manual-type"]:checked').value;
-            await apiCall('/direct-download', 'POST', {
-                link: dom('manual-link').value,
-                title: dom('manual-name').value,
-                type
-            });
-            dom('manual-link').value = '';
-            showToast('Sent!');
-        } catch(e) { showToast(e.message); }
-    };
+    // --- MANUAL ADD (JDownloader) ---
+    const manualForm = dom('manual-form');
+    if(manualForm) {
+        manualForm.onsubmit = async (e) => {
+            e.preventDefault();
+            try {
+                const type = document.querySelector('input[name="manual-type"]:checked').value;
+                await apiCall('/direct-download', 'POST', {
+                    link: dom('manual-link').value,
+                    title: dom('manual-name').value,
+                    type
+                });
+                dom('manual-link').value = '';
+                showToast('Link sent to JDownloader!');
+            } catch(e) { showToast(e.message); }
+        };
+    }
 
-    // --- REFRESH ---
-    dom('btn-refresh-plex').onclick = async () => {
-        try {
-            await apiCall('/refresh-plex', 'POST');
-            showToast('Scanning Plex...');
-        } catch(e) { showToast(e.message); }
-    };
+    // --- PLEX ACTIONS ---
+    const refreshPlexBtn = dom('btn-refresh-plex');
+    if(refreshPlexBtn) {
+        refreshPlexBtn.onclick = async () => {
+            try {
+                await apiCall('/refresh-plex', 'POST');
+                showToast('Scanning Plex Library...');
+            } catch(e) { showToast(e.message); }
+        };
+    }
 
-    dom('btn-logout').onclick = async () => {
-        await apiCall('/logout', 'POST');
-        location.reload();
-    };
+    // --- LOGOUT ---
+    const logoutBtn = dom('btn-logout');
+    if(logoutBtn) {
+        logoutBtn.onclick = async () => {
+            await apiCall('/logout', 'POST');
+            location.reload();
+        };
+    }
 
-    // Start
+    // Start App
     checkSession();
 });
